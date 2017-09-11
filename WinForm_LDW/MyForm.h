@@ -221,7 +221,7 @@ namespace WinForm_LDW {
 		if (opnFileDlg->ShowDialog() == System::Windows::Forms::DialogResult::OK) {
 
 			filename = (char*)(void*)Marshal::StringToHGlobalAnsi(opnFileDlg->FileName);
-			int xx = 99;
+			
 		}
 		delete opnFileDlg;
 	}

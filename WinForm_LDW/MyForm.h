@@ -81,7 +81,7 @@ namespace WinForm_LDW {
 			// 
 			// Btn_Start
 			// 
-			this->Btn_Start->Location = System::Drawing::Point(908, 138);
+			this->Btn_Start->Location = System::Drawing::Point(975, 443);
 			this->Btn_Start->Name = L"Btn_Start";
 			this->Btn_Start->Size = System::Drawing::Size(87, 41);
 			this->Btn_Start->TabIndex = 0;
@@ -105,7 +105,7 @@ namespace WinForm_LDW {
 			this->menuStrip1->Items->AddRange(gcnew cli::array< System::Windows::Forms::ToolStripItem^  >(1) { this->loadFileToolStripMenuItem });
 			this->menuStrip1->Location = System::Drawing::Point(0, 0);
 			this->menuStrip1->Name = L"menuStrip1";
-			this->menuStrip1->Size = System::Drawing::Size(1007, 27);
+			this->menuStrip1->Size = System::Drawing::Size(1074, 27);
 			this->menuStrip1->TabIndex = 3;
 			this->menuStrip1->Text = L"menuStrip1";
 			// 
@@ -127,7 +127,7 @@ namespace WinForm_LDW {
 			// 
 			// pictureBox2
 			// 
-			this->pictureBox2->Location = System::Drawing::Point(383, 30);
+			this->pictureBox2->Location = System::Drawing::Point(417, 30);
 			this->pictureBox2->Name = L"pictureBox2";
 			this->pictureBox2->Size = System::Drawing::Size(364, 329);
 			this->pictureBox2->SizeMode = System::Windows::Forms::PictureBoxSizeMode::AutoSize;
@@ -138,7 +138,7 @@ namespace WinForm_LDW {
 			// 
 			this->AutoScaleDimensions = System::Drawing::SizeF(8, 15);
 			this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Font;
-			this->ClientSize = System::Drawing::Size(1007, 521);
+			this->ClientSize = System::Drawing::Size(1074, 549);
 			this->Controls->Add(this->label1);
 			this->Controls->Add(this->pictureBox2);
 			this->Controls->Add(this->pictureBox1);
@@ -167,6 +167,7 @@ namespace WinForm_LDW {
 	{
 		int total_frameNo = cvGetCaptureProperty(cap, CV_CAP_PROP_FRAME_COUNT);
 		int counter =1;
+		
 		while (true)
 		{
 			if (cvGrabFrame(cap))
@@ -174,11 +175,14 @@ namespace WinForm_LDW {
 				//cvSetCaptureProperty(capture, CV_CAP_PROP_POS_FRAMES, pos);
 				frame = cvRetrieveFrame(cap);
 				Mat img = frame;	
-				Pretreatment(img);
+				img = img(cv::Rect(cv::Point(0, 450), cv::Point(1255, 610)));
+				Mat result=Pretreatment(img);
+				cv::bitwise_and(img,result, img);
 				counter++;
 				System::String^ str = counter.ToString() + "/" + total_frameNo.ToString();
 				SetLabelText(label1, str);
 				ShowImage(pictureBox1, frame);
+				ShowImage(pictureBox2, img);
 			}
 			else
 			{
@@ -203,6 +207,7 @@ namespace WinForm_LDW {
 		default:
 			break;
 		}
+		resize(image_Temp, image_Temp,cv::Size(PBox->Width, PBox->Height));
 		System::IntPtr ptr(image_Temp.ptr());
 		System::Drawing::Graphics^ graphics = PBox->CreateGraphics();
 		System::Drawing::Bitmap^ b = gcnew System::Drawing::Bitmap(image_Temp.cols, image_Temp.rows, image_Temp.step, System::Drawing::Imaging::PixelFormat::Format24bppRgb, ptr);
@@ -234,116 +239,54 @@ namespace WinForm_LDW {
 			obj->Text = text;
 		}
 	}
-	private:void Pretreatment(Mat& src) {
+	private:cv::Mat Pretreatment(Mat& src) {
 		
-		Mat edges;
-		Mat img_gray, img_blur, img_canny;
+		Mat img_gray;
 
 		cvtColor(src, img_gray, CV_RGB2GRAY);
+		Mat img_blur;
 		GaussianBlur(img_gray, img_blur, cv::Size(5, 5), 0, 0);
+		Mat edges;
 		Canny(img_blur, edges, 70, 150);
-		//imshow("1", edges);
-
-		//-------------------頂部ROI區域設置---------------------------
-		int n_segments = 1;
-		int segments = 40;
-		int cum_length = 0;
-
-		vector<CvPoint> contor;
-		vector<Vec4i> lines;//分別存放x1 y1 x2 y2
-		Vtr4i linepoint_r;
-		Vtr4i linepoint_r2;
-		Vtr4i linepoint_l;
-		Vtr4i linepoint_l2;
-
-		int hough_threshold = 10;
-		int hough_minLineLength = 20;
-		int segments_ = 0;
-
-		
-		Mat Roi = edges(Rect(cv::Point(290,370), cv::Point(1255, 610)));
-		
-		//------------------霍夫轉換---------------------------------
-		HoughLinesP(Roi, lines, 1, CV_PI / 180, hough_threshold, hough_minLineLength, 50);
-
-		Mat image = Mat::zeros(src.size(), CV_8UC3);
-		for (int j = 0; j<lines.size(); j++)
-		{
-			double m = ((double)lines[j][3] - lines[j][1]) / ((double)lines[j][2] - lines[j][0]);
-			Vec4i l = lines[j];
-			//--------------以中心為基準往左右兩邊儲存霍夫線，另以角度濾除雜線---------------
-			if (l[0] > src.cols / 2) {//右邊
-				if (m>-2.14 && m<-0.35) {			
-					linepoint_r.push_back(Vec4i(l[0], l[1], l[2], l[3]));
-					//line(Roi, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), Scalar(0, 0, 255), 1, CV_AA);
-				}
-				else if (m>0.35 && m<3.73) {			
-					linepoint_r2.push_back(Vec4i(l[0], l[1], l[2], l[3]));
-					//line(Roi, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), Scalar(0, 0, 255), 1, CV_AA);
-				}
-				else {
-					lines[j][1] = lines[j][3];
-					lines[j][0] = lines[j][2];
-				}
-			}
-			else if (l[0] < src.cols / 2) {//左邊
-				if (m>-2.14 && m<-0.35) {	
-					linepoint_l.push_back(Vec4i(l[0], l[1], l[2], l[3]));
-					//line(Roi, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), Scalar(0, 0, 255), 1, CV_AA);
-				}
-				else if (m>0.35 && m<3.73) {
-					
-					linepoint_l2.push_back(Vec4i(l[0], l[1], l[2], l[3]));
-					//line(Roi, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), Scalar(0, 0, 255), 1, CV_AA);
-				}
-				else {
-					lines[j][1] = lines[j][3];
-					lines[j][0] = lines[j][2];
-				}
-			}
-			else {
-				lines[j][1] = lines[j][3];
-				lines[j][0] = lines[j][2];
-			}	
-		}
-		if (linepoint_r.size() > linepoint_r2.size())
-		{
-			for (size_t i = 0; i < linepoint_r.size(); i++)
-			{
-				line(image,cv::Point(linepoint_r[i][0], linepoint_r[i][1]+340), cv::Point(linepoint_r[i][2], linepoint_r[i][3] + 340),CV_RGB(255,255,255),3,CV_AA);
-				
-			}	
-		}
-		else
-		{
-			for (size_t i = 0; i < linepoint_r2.size(); i++)
-			{
-				line(image, cv::Point(linepoint_r2[i][0], linepoint_r2[i][1] + 340), cv::Point(linepoint_r2[i][2], linepoint_r2[i][3] + 340), CV_RGB(255, 255, 255), 3, CV_AA);
-				
-			}
-		}
-		
-		if (linepoint_l.size() > linepoint_l2.size())
-		{
-			for (size_t i = 0; i < linepoint_r.size(); i++)
-			{
-				line(image, cv::Point(linepoint_l[i][0], linepoint_l[i][1] + 340), cv::Point(linepoint_l[i][2], linepoint_l[i][3] + 340), CV_RGB(255, 255, 255), 3, CV_AA);
-			
-			}
-		}
-		else
-		{
-			for (size_t i = 0; i < linepoint_l2.size(); i++)
-			{
-				line(image, cv::Point(linepoint_l2[i][0], linepoint_l2[i][1] + 340), cv::Point(linepoint_l2[i][2], linepoint_l2[i][3] + 340), CV_RGB(255, 255, 255), 3, CV_AA);
-				
-			}
-		}
-		Mat src_temp;
-		src.copyTo(src_temp);
-		bitwise_and(src_temp, image, image);
-		int aa = 99;
-	}
 	
+		IplConvKernel *pKernel = NULL;
+		pKernel = cvCreateStructuringElementEx(3, 3, 1, 1, CV_SHAPE_RECT, NULL);
+		cvDilate(&(IplImage)edges, &(IplImage)edges, cvCreateStructuringElementEx(3, 3, 1, 1, CV_SHAPE_RECT, NULL), 1);
+
+	
+		Vector<cv::Point> TopLineCompensate, ButtomLineCompensate;
+		for (size_t i = 0; i < edges.cols; i++)
+		{
+			if (cvGet2D(&(IplImage)edges, 1, i).val[0] > 0)TopLineCompensate.push_back(cv::Point(i, 1));
+			if(cvGet2D(&(IplImage)edges,158,i).val[0] > 0)ButtomLineCompensate.push_back(cv::Point(i, 158));
+		}
+		if (TopLineCompensate.size() != 0)
+		{
+			for (size_t i = 0; i < TopLineCompensate.size() - 1; i++)
+			{
+				if ((TopLineCompensate[i + 1].x - TopLineCompensate[i].x) < 25)
+					line(edges, TopLineCompensate[i], TopLineCompensate[i + 1], CV_RGB(255, 255, 255), 2);
+			}
+		}
+		if (ButtomLineCompensate.size() != 0)
+		{
+			for (size_t i = 0; i < ButtomLineCompensate.size() - 1; i++)
+			{
+			if ((ButtomLineCompensate[i + 1].x - ButtomLineCompensate[i].x) < 40)
+				line(edges, ButtomLineCompensate[i], ButtomLineCompensate[i + 1], CV_RGB(255, 255, 255), 2);
+			}
+		}
+		Mat dst = Mat::zeros(img_gray.size(), CV_8UC3);
+		vector<vector<cv::Point>> contours; // Vector for storing contour
+		Vtr4i hierarchy;
+		img_gray.release(); img_blur.release();
+		findContours(edges, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE); // Find the contours in the image
+		for (int i = 0; i < contours.size(); i++) // Iterate through each contour
+		{
+			drawContours(dst, contours, i, CV_RGB(255, 255, 255), CV_FILLED, 8, hierarchy);
+		} 
+		
+		return dst;
+	}
 };
 }
